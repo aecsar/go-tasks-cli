@@ -157,3 +157,53 @@ func CompleteTask(taskId int) error {
 	// fmt.Printf("Task with ID %d marked as completed.\n", taskId)
 	return nil
 }
+
+func DeleteTask(taskId int) error {
+	// Read all tasks
+	tasks, _, err := ReadTasks()
+	if err != nil {
+		return fmt.Errorf("error reading tasks: %v", err)
+	}
+
+	// Find the index of the task with the specified ID
+	indexToDelete := -1
+	for i, task := range tasks {
+		id, err := strconv.Atoi(task[0]) // Convert ID from string to int
+		if err != nil {
+			return fmt.Errorf("invalid task ID in file: %v", err)
+		}
+
+		if id == taskId {
+			indexToDelete = i
+			break
+		}
+	}
+
+	// If the task was not found, return an error
+	if indexToDelete == -1 {
+		return fmt.Errorf("task with ID %d not found", taskId)
+	}
+
+	// Remove the task from the slice
+	tasks = append(tasks[:indexToDelete], tasks[indexToDelete+1:]...)
+
+	// Open the file in truncate mode to rewrite the tasks
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening file for writing: %v", err)
+	}
+	defer f.Close()
+
+	// Write the header and remaining tasks back to the file
+	w := csv.NewWriter(f)
+	if err := w.Write(Header); err != nil {
+		return fmt.Errorf("error writing header: %v", err)
+	}
+	if err := w.WriteAll(tasks); err != nil {
+		return fmt.Errorf("error writing tasks: %v", err)
+	}
+	w.Flush()
+
+	// fmt.Printf("Task with ID %d deleted successfully.\n", taskId)
+	return nil
+}
