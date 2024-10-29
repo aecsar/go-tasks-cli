@@ -6,14 +6,25 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
 
 var (
-	filename = "output.csv"
+	filename string
 	Header   = []string{"ID", "description", "createdAt", "isCompleted"}
 )
+
+func init() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic("unable to find home directory")
+	}
+
+	// Set the filename to a hidden file in the user's home directory
+	filename = filepath.Join(homeDir, ".tasks.csv")
+}
 
 func openTasksFile() (*os.File, error) {
 	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
