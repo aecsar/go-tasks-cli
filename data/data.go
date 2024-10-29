@@ -93,18 +93,67 @@ func CreateTask(description string) {
 	// Closing the file before opening it again, to avoid concurrent writing
 	f.Close()
 
+	// Insert the new task at the beginning of the slice
 	newTask := []string{strconv.FormatInt(int64(len(tasks))+1, 10), description, time.Now().Format(time.RFC3339), "false"}
+	tasks = append([][]string{newTask}, tasks...)
 
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	// Reopen the file in truncate mode to overwrite the contents
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
 		fmt.Println("Error while opening tasks file for write")
+		return
 	}
-
 	defer f.Close()
 
 	w := csv.NewWriter(f)
 
-	w.Write(newTask)
-
+	// Write header, followed by all tasks with the latest task first
+	if err := w.Write(Header); err != nil {
+		fmt.Println("Error writing header:", err)
+		return
+	}
+	if err := w.WriteAll(tasks); err != nil {
+		fmt.Println("Error writing tasks:", err)
+		return
+	}
 	w.Flush()
+
+	fmt.Println("Task created")
+}
+
+func CompleteTask(taskId int) error {
+	tasks, f, _ := ReadTasks()
+	defer f.Close()
+
+	// Open the file in truncate mode to rewrite all tasks
+	f, _ = os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	defer f.Close()
+
+	for i, task := range tasks {
+		// Parse the ID field to an integer
+		id, err := strconv.Atoi(task[0])
+		if err != nil {
+			return fmt.Errorf("invalid task ID in file: %v", err)
+		}
+
+		// Check if the task ID matches the input taskId
+		if id == taskId {
+			// Mark the task as completed
+			tasks[i][3] = "true"
+			break
+		}
+	}
+
+	// Write updated tasks back to the file, including the header
+	w := csv.NewWriter(f)
+	if err := w.Write(Header); err != nil {
+		return fmt.Errorf("error writing header: %v", err)
+	}
+	if err := w.WriteAll(tasks); err != nil {
+		return fmt.Errorf("error writing tasks: %v", err)
+	}
+	w.Flush()
+
+	// fmt.Printf("Task with ID %d marked as completed.\n", taskId)
+	return nil
 }
